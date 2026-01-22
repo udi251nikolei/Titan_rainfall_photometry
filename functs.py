@@ -1,4 +1,3 @@
-
 import numpy as np
 import matplotlib.pyplot as plt
 import pdr
@@ -91,12 +90,78 @@ def get_image_data(image_file, camera_filter, camera):
     
     return image_data
 
+def draw_titan_aperture(image_data, planet_cassini_distance, pixel_angular_size):
+    
+    total_image_value = image_data.sum()
+    print(f"Total image value: {total_image_value}")
+    xaxis_marginal = image_data.sum(axis=0)/total_image_value
+    yaxis_marginal = image_data.sum(axis=1)/total_image_value
+    image_pixel_length = len(yaxis_marginal)
+    print(f"Square length of array: {image_pixel_length}\n")
+    
+    cumulate_middle_xaxis = (np.cumsum(xaxis_marginal) <= 0.5)
+    middle_bound_xaxis = cumulate_middle_xaxis.sum()
+    print(f"0.5 cumulative bound along xaxis columns: {middle_bound_xaxis}")
+    
+    cumulate_middle_yaxis = (np.cumsum(yaxis_marginal) <= 0.5)
+    middle_bound_yaxis = cumulate_middle_yaxis.sum()
+    print(f"0.5 cumulative bound along yaxis rows: {middle_bound_yaxis}")
+    
+    planet_radius = 2975 #2575km
+    planet_pixel_radius = np.arctan(planet_radius/planet_cassini_distance) / pixel_angular_size
+    print(f"Planet raidus in pixels: {planet_pixel_radius}\n")
+    
+    #------------------------------------------------------------------
+    
+    #aperture = CircularAperture((x_apature, y_apature), r=r_apature)
+    
+    fig, ax = plt.subplots(figsize=(8, 8))
+
+    ax.imshow(image_data, cmap='gray')
+    #aperture.plot(color = "white", lw = 1.5,  linestyle = "dashed")
+
+    ax.set_xlabel("CCD's x-axis")
+    ax.set_ylabel("CCD's y-axis")
+        
+    divider = make_axes_locatable(ax)
+    ax_histx = divider.append_axes("top", 1.2, pad=0.1, sharex=ax)
+    ax_histy = divider.append_axes("right", 1.2, pad=0.1, sharey=ax)
+
+    ax_histx.xaxis.set_tick_params(labelbottom=False)
+    ax_histy.yaxis.set_tick_params(labelleft=False)
+    
+    square_image_range = np.arange(0, image_pixel_length)
+
+    ax_histx.plot(square_image_range, xaxis_marginal, color="tab:gray", alpha=0.2)
+    #ax_histx.set_xlim(0, len(xaxis_marginal))
+    #ax_histx.set_ylim(0)
+    ax_histx.fill_between(square_image_range, 0, xaxis_marginal, color="tab:gray", alpha=0.5)
+    ax_histx.axvline(middle_bound_xaxis, color="black", linestyle="dashed")
+    ax_histx.axvline(middle_bound_xaxis + planet_pixel_radius, color="tab:blue", linestyle="dashed")
+    ax_histx.axvline(middle_bound_xaxis - planet_pixel_radius, color="tab:blue", linestyle="dashed")
+    
+    ax_histy.plot(yaxis_marginal, square_image_range, color="tab:gray", alpha=0.2)
+    #ax_histy.set_xlim(0)
+    #ax_histy.set_ylim(0, len(yaxis_marginal))
+    ax_histy.fill_between(yaxis_marginal, 0, square_image_range, color="tab:gray", alpha=0.5)
+    ax_histy.axhline(middle_bound_yaxis, color="black", linestyle="dashed")
+    ax_histy.axhline(middle_bound_yaxis + planet_pixel_radius, color="tab:blue", linestyle="dashed")
+    ax_histy.axhline(middle_bound_yaxis - planet_pixel_radius, color="tab:blue", linestyle="dashed")
+    
+    plt.show()
+    
+    return None
+    
+    
+    
+
 def get_titan_aperture(image_file, image_number, camera_filter, camera, planet_cassini_distance, pixel_angular_size):
     
     image_data = get_image_data(image_file, camera_filter, camera)
     
     total_image_value = image_data.sum()
     print(f"Total image value: {total_image_value}")
+    
     yaxis_marginal = image_data.sum(axis=1)/total_image_value
     xaxis_marginal = image_data.sum(axis=0)/total_image_value
     image_pixel_length = len(yaxis_marginal)
@@ -249,9 +314,5 @@ def image_photometry(image_file, image_number, planet_distance_in_km, exposure_t
         line = str(image_photometry)
         out_file.write(line)
         
-    return (image_number, titan_aperture_sky_reduced, titan_intensity)
-
-    
-    
-    
+    return (image_number, titan_aperture_sky_reduced, titan_intensity)    
     
