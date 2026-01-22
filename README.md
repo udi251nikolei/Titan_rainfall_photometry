@@ -1,0 +1,1 @@
+# drawing_titan_aperture
