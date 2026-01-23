@@ -54,7 +54,7 @@ def plot_fits_images(image_file, camera_filter, camera):
         
     plt.imshow(image_data, cmap='gray')
     plt.gca().invert_yaxis()
-    plt.savefig(f"Titan_images/{camera_filter}_{camera}/{image_file}.png", dpi = 120, bbox_inches='tight')
+    plt.savefig(f"Titan_images/{camera_filter}_{camera}/fits_images/{image_file}.png", dpi = 120, bbox_inches='tight')
     plt.show()
         
     return None
@@ -75,6 +75,7 @@ def plot_number_of_rejected_pixels(image_file, camera_filter, camera):
     plt.title("No. of rejection pixel values in image above diff. upper limits")
     plt.xlabel("Upper limit")
     plt.ylabel("No. of rej. pixels")
+    #plt.savefig(f"Titan_images/{camera_filter}_{camera}/{image_file}_rejected_pix_plot.png", dpi = 120, bbox_inches='tight')
     plt.show() 
     
     return None
@@ -90,6 +91,167 @@ def get_image_data(image_file, camera_filter, camera):
     
     return image_data
 
+def get_titan_aperture(image_file, camera_filter, camera, planet_cassini_distance, pixel_angular_size):
+    
+    image_data = get_image_data(image_file, camera_filter, camera)
+    
+    total_image_value = image_data.sum()
+    print(f"Total image value: {total_image_value}")
+    yaxis_marginal = image_data.sum(axis=1)/total_image_value
+    xaxis_marginal = image_data.sum(axis=0)/total_image_value
+    image_pixel_length = len(yaxis_marginal)
+    print(f"Square length of array: {image_pixel_length}\n")
+    
+    cumulate_middle_xaxis = (np.cumsum(xaxis_marginal) <= 0.5)
+    middle_bound_xaxis = cumulate_middle_xaxis.sum()
+    #print(f"Middle cumulative bound from left xaxis: {middle_bound_xaxis}")
+    cumulate_quarter_xaxis_left = (np.cumsum(xaxis_marginal) <= 0.02)
+    quarter_bound_xaxis_left = cumulate_quarter_xaxis_left.sum()
+    quarter_middle_bound_xaxis_left_diff = abs(middle_bound_xaxis - quarter_bound_xaxis_left)
+    #print(f"Quarter cumulative bound from left xaxis: {quarter_bound_xaxis_left}")
+    cumulate_quarter_xaxis_right = (np.cumsum(xaxis_marginal[::-1]) <= 0.02)
+    quarter_bound_xaxis_right = len(xaxis_marginal) - cumulate_quarter_xaxis_right.sum()
+    quarter_middle_bound_xaxis_right_diff = abs(middle_bound_xaxis - quarter_bound_xaxis_right)
+    #print(f"Quarter cumulative from right xaxis: {quarter_bound_xaxis_right}")
+    middle_bound_xaxis_shift = abs(quarter_middle_bound_xaxis_right_diff - quarter_middle_bound_xaxis_left_diff)
+    
+    if (quarter_middle_bound_xaxis_right_diff >= quarter_middle_bound_xaxis_left_diff):
+        middle_bound_xaxis_improved  = middle_bound_xaxis + middle_bound_xaxis_shift
+    else:
+        middle_bound_xaxis_improved = middle_bound_xaxis - middle_bound_xaxis_shift
+    print(f"Imporved image xaxis center: {middle_bound_xaxis_improved}")
+    
+    cumulate_middle_yaxis = (np.cumsum(yaxis_marginal) <= 0.5)
+    middle_bound_yaxis = cumulate_middle_yaxis.sum()
+    #print(f"Middle cumulative bound from left yaxis: {middle_bound_yaxis}")
+    cumulate_quarter_yaxis_left = (np.cumsum(yaxis_marginal) <= 0.02)
+    quarter_bound_yaxis_left = cumulate_quarter_yaxis_left.sum()
+    quarter_middle_bound_yaxis_left_diff = abs(middle_bound_yaxis - quarter_bound_yaxis_left)
+    #print(f"Quarter cumulative bound from left yaxis: {quarter_bound_yaxis_left}")
+    cumulate_quarter_yaxis_right = (np.cumsum(yaxis_marginal[::-1]) <= 0.02)
+    quarter_bound_yaxis_right = len(yaxis_marginal) - cumulate_quarter_yaxis_right.sum()
+    quarter_middle_bound_yaxis_right_diff = abs(middle_bound_yaxis - quarter_bound_yaxis_right)
+    #print(f"Quarter cumulative from right yaxis: {quarter_bound_yaxis_right}\n")
+    middle_bound_yaxis_shift = abs(quarter_middle_bound_yaxis_right_diff - quarter_middle_bound_yaxis_left_diff)
+    
+    if (quarter_middle_bound_yaxis_right_diff >= quarter_middle_bound_yaxis_left_diff):
+        middle_bound_yaxis_improved  = middle_bound_yaxis + middle_bound_yaxis_shift
+    else:
+        middle_bound_yaxis_improved = middle_bound_yaxis - middle_bound_yaxis_shift
+    print(f"Imporved image yaxis center: {middle_bound_yaxis_improved}\n")
+    
+    planet_radius = 2950 #km
+    planet_pixel_radius = np.arctan(planet_radius/planet_cassini_distance) / pixel_angular_size
+    print(f"Titan raidus in pixels: {planet_pixel_radius}")
+    
+    if (planet_pixel_radius >= 50):
+        aperture_center_xcoord = middle_bound_xaxis_improved
+        aperture_center_ycoord = middle_bound_yaxis_improved
+        extra_apature_radius = 20 #pix
+        aperture_radius = planet_pixel_radius + extra_apature_radius
+        print(f"Aperture raidus in pixels: {aperture_radius}\n")
+    else:
+        aperture_center_xcoord = middle_bound_xaxis
+        aperture_center_ycoord = middle_bound_yaxis
+        extra_apature_radius = 20 #pix
+        aperture_radius = planet_pixel_radius + extra_apature_radius
+        print(f"Aperture radius in pixels: {aperture_radius}\n")
+    
+    x_apature = aperture_center_xcoord
+    y_apature = aperture_center_ycoord
+    r_apature = aperture_radius
+    
+    aperture = CircularAperture((x_apature, y_apature), r=r_apature)
+    inner_annulus = r_apature + 5
+    outer_annulus = inner_annulus + 10
+    annulus = CircularAnnulus((x_apature, y_apature), r_in=inner_annulus, r_out=outer_annulus)
+    
+    if ((x_apature + outer_annulus) >= image_pixel_length):
+        print("!!! Titan outside Image along the xaxis !!!\n")
+        plot_image_aperture(image_data, camera_filter, camera, x_apature, y_apature, r_apature, aperture, annulus,
+                            middle_bound_xaxis, middle_bound_yaxis, quarter_bound_xaxis_left, quarter_bound_xaxis_right, quarter_bound_yaxis_left, quarter_bound_yaxis_right)
+        plt.savefig(f"Titan_images/{camera_filter}_{camera}/apatures/{image_file}_annulus.png", dpi = 120, bbox_inches='tight')
+        return None
+    elif ((x_apature - outer_annulus) <= 0):
+        print("!!! Titan outside Image along the xaxis !!!\n")
+        plot_image_aperture(image_data, camera_filter, camera, x_apature, y_apature, r_apature, aperture, annulus,
+                            middle_bound_xaxis, middle_bound_yaxis, quarter_bound_xaxis_left, quarter_bound_xaxis_right, quarter_bound_yaxis_left, quarter_bound_yaxis_right)
+        plt.savefig(f"Titan_images/{camera_filter}_{camera}/apatures/{image_file}_annulus.png", dpi = 120, bbox_inches='tight')
+        return None
+        
+    if ((y_apature + outer_annulus) >= image_pixel_length):
+        print("!!! Titan outside Image along the yaxis !!!\n")
+        plot_image_aperture(image_data, camera_filter, camera, x_apature, y_apature, r_apature, aperture, annulus,
+                            middle_bound_xaxis, middle_bound_yaxis, quarter_bound_xaxis_left, quarter_bound_xaxis_right, quarter_bound_yaxis_left, quarter_bound_yaxis_right)
+        plt.savefig(f"Titan_images/{camera_filter}_{camera}/apatures/{image_file}_annulus.png", dpi = 120, bbox_inches='tight')
+        return None
+    elif ((y_apature - outer_annulus) <= 0):
+        print("!!! Titan outside Image along the yaxis !!!\n")
+        plot_image_aperture(image_data, camera_filter, camera, x_apature, y_apature, r_apature, aperture, annulus, 
+                            middle_bound_xaxis, middle_bound_yaxis, quarter_bound_xaxis_left, quarter_bound_xaxis_right, quarter_bound_yaxis_left, quarter_bound_yaxis_right)
+        plt.savefig(f"Titan_images/{camera_filter}_{camera}/apatures/{image_file}_annulus.png", dpi = 120, bbox_inches='tight')
+        return None
+    
+    plot_image_aperture(image_data, camera_filter, camera, x_apature, y_apature, r_apature, aperture, annulus, 
+                        middle_bound_xaxis, middle_bound_yaxis, quarter_bound_xaxis_left, quarter_bound_xaxis_right, quarter_bound_yaxis_left, quarter_bound_yaxis_right)
+    plt.savefig(f"Titan_images/{camera_filter}_{camera}/image_photometry/{image_file}_annulus.png", dpi = 120, bbox_inches='tight')
+    
+    return None#(aperture, annulus)
+
+def plot_image_aperture(image_data, camera_filter, camera, x_apature, y_apature, r_apature, aperture, annulus, 
+                        middle_bound_xaxis, middle_bound_yaxis, quarter_bound_xaxis_left, quarter_bound_xaxis_right, quarter_bound_yaxis_left, quarter_bound_yaxis_right):
+    
+    fig, ax = plt.subplots(figsize=(8, 8))
+
+    ax.imshow(image_data, cmap='gray')
+    aperture.plot(color = "white", lw = 1.5,  linestyle = "dashed")
+    annulus.plot(color = "tab:blue", lw = 1.5)
+
+    ax.set_xlabel("CCD's x-axis")
+    ax.set_ylabel("CCD's y-axis")
+    
+    total_image_value = image_data.sum()
+    yaxis_marginal = image_data.sum(axis=1)/total_image_value
+    xaxis_marginal = image_data.sum(axis=0)/total_image_value
+    image_pixel_length = len(yaxis_marginal)
+        
+    divider = make_axes_locatable(ax)
+    ax_histx = divider.append_axes("top", 1.2, pad=0.1, sharex=ax)
+    ax_histy = divider.append_axes("right", 1.2, pad=0.1, sharey=ax)
+
+    ax_histx.xaxis.set_tick_params(labelbottom=False)
+    ax_histy.yaxis.set_tick_params(labelleft=False)
+    
+    CCD_range = np.arange(0, image_pixel_length)
+
+    ax_histx.plot(CCD_range, xaxis_marginal, color="tab:gray", alpha=0.2)
+    ax_histx.set_xlim(0, len(xaxis_marginal))
+    ax_histx.set_ylim(0)
+    ax_histx.fill_between(CCD_range, 0, xaxis_marginal, color="tab:gray", alpha=0.5)
+    ax_histx.axvline(x_apature, color="black", linestyle="dashed")
+    ax_histx.axvline(x_apature - r_apature, color="tab:gray", linestyle="dashed")
+    ax_histx.axvline(x_apature + r_apature, color="tab:gray", linestyle="dashed")
+    ax_histx.axvline(middle_bound_xaxis, color="blue", linestyle="dashed")
+    ax_histx.axvline(quarter_bound_xaxis_left, color="blue")
+    ax_histx.axvline(quarter_bound_xaxis_right, color="blue")
+    ax_histx.axvline(middle_bound_xaxis - r_apature, color="tab:green", linestyle="dashed")
+    ax_histx.axvline(middle_bound_xaxis + r_apature, color="tab:green", linestyle="dashed")
+
+    ax_histy.plot(yaxis_marginal, CCD_range, color="tab:gray", alpha=0.2)
+    ax_histy.set_xlim(0)
+    ax_histy.set_ylim(0, len(yaxis_marginal))
+    ax_histy.fill_between(yaxis_marginal, 0, CCD_range, color="tab:gray", alpha=0.5)
+    ax_histy.axhline(y_apature, color="black", linestyle="dashed")
+    ax_histy.axhline(y_apature - r_apature, color="tab:gray", linestyle="dashed")
+    ax_histy.axhline(y_apature + r_apature, color="tab:gray", linestyle="dashed")
+    ax_histy.axhline(middle_bound_yaxis, color="blue", linestyle="dashed")
+    ax_histy.axhline(quarter_bound_yaxis_left, color="blue")
+    ax_histy.axhline(quarter_bound_yaxis_right, color="blue")
+    ax_histy.axhline(middle_bound_yaxis - r_apature, color="tab:green", linestyle="dashed")
+    ax_histy.axhline(middle_bound_yaxis + r_apature, color="tab:green", linestyle="dashed")
+    
+    return None
+
 def draw_titan_aperture(image_data, planet_cassini_distance, pixel_angular_size):
     
     total_image_value = image_data.sum()
@@ -98,25 +260,42 @@ def draw_titan_aperture(image_data, planet_cassini_distance, pixel_angular_size)
     yaxis_marginal = image_data.sum(axis=1)/total_image_value
     image_pixel_length = len(yaxis_marginal)
     print(f"Square length of array: {image_pixel_length}\n")
-    
+
+    """
     cumulate_middle_xaxis = (np.cumsum(xaxis_marginal) <= 0.5)
     middle_bound_xaxis = cumulate_middle_xaxis.sum()
     print(f"50% cumulative bound along xaxis columns: {middle_bound_xaxis}")
     
     cumulate_middle_yaxis = (np.cumsum(yaxis_marginal) <= 0.5)
     middle_bound_yaxis = cumulate_middle_yaxis.sum()
-    print(f"50% cumulative bound along yaxis rows: {middle_bound_yaxis}")
+    print(f"50% cumulative bound along yaxis rows: {middle_bound_yaxis}\n")
     
-    planet_radius = 2975 #km
+    """
+    CCD_range = np.arange(0, image_pixel_length)
+    
+    find_max_xaxis_margin = (max(xaxis_marginal) == xaxis_marginal)
+    max_xaxis_margin = float(CCD_range[find_max_xaxis_margin])
+    print(f"xaxis center: {max_xaxis_margin}")
+    
+    find_max_yaxis_margin = (max(yaxis_marginal) == yaxis_marginal)
+    max_yaxis_margin = float(CCD_range[find_max_yaxis_margin])
+    print(f"yaxis center: {max_yaxis_margin}")
+    
+    
+    planet_radius = 2950 #km
     planet_pixel_radius = np.arctan(planet_radius/planet_cassini_distance) / pixel_angular_size
-    print(f"Titan raidus in pixels: {planet_pixel_radius}\n")
+    print(f"Titan raidus in pixels: {planet_pixel_radius}")
     extra_radius = 0
     aperture_radius = planet_pixel_radius + extra_radius
     print(f"Aperture raidus in pixels: {aperture_radius}\n")
     
+    x_apature = max_xaxis_margin
+    y_apature = max_yaxis_margin
+    r_apature = aperture_radius
+    
     #------------------------------------------------------------------
     
-    aperture = CircularAperture((middle_bound_xaxis, middle_bound_yaxis), r=aperture_radius)
+    aperture = CircularAperture((x_apature, y_apature), r=r_apature)
     
     fig, ax = plt.subplots(figsize=(8, 8))
 
@@ -139,150 +318,21 @@ def draw_titan_aperture(image_data, planet_cassini_distance, pixel_angular_size)
     ax_histx.set_xlim(0, len(xaxis_marginal))
     ax_histx.set_ylim(0)
     ax_histx.fill_between(square_image_range, 0, xaxis_marginal, color="tab:gray", alpha=0.5)
-    ax_histx.axvline(middle_bound_xaxis, color="black", linestyle="dashed")
-    ax_histx.axvline(middle_bound_xaxis + aperture_radius, color="tab:blue", linestyle="dashed")
-    ax_histx.axvline(middle_bound_xaxis - aperture_radius, color="tab:blue", linestyle="dashed")
+    ax_histx.axvline(x_apature, color="black", linestyle="dashed")
+    ax_histx.axvline(x_apature + r_apature, color="tab:blue", linestyle="dashed")
+    ax_histx.axvline(x_apature - r_apature, color="tab:blue", linestyle="dashed")
     
     ax_histy.plot(yaxis_marginal, square_image_range, color="tab:gray", alpha=0.2)
     ax_histy.set_xlim(0)
     ax_histy.set_ylim(0, len(yaxis_marginal))
     ax_histy.fill_between(yaxis_marginal, 0, square_image_range, color="tab:gray", alpha=0.5)
-    ax_histy.axhline(middle_bound_yaxis, color="black", linestyle="dashed")
-    ax_histy.axhline(middle_bound_yaxis + aperture_radius, color="tab:blue", linestyle="dashed")
-    ax_histy.axhline(middle_bound_yaxis - aperture_radius, color="tab:blue", linestyle="dashed")
+    ax_histy.axhline(y_apature, color="black", linestyle="dashed")
+    ax_histy.axhline(y_apature + r_apature, color="tab:blue", linestyle="dashed")
+    ax_histy.axhline(y_apature - r_apature, color="tab:blue", linestyle="dashed")
     
     plt.show()
     
     return None
-    
-def get_titan_aperture(image_file, image_number, camera_filter, camera, planet_cassini_distance, pixel_angular_size):
-    
-    image_data = get_image_data(image_file, camera_filter, camera)
-    
-    total_image_value = image_data.sum()
-    print(f"Total image value: {total_image_value}")
-    
-    yaxis_marginal = image_data.sum(axis=1)/total_image_value
-    xaxis_marginal = image_data.sum(axis=0)/total_image_value
-    image_pixel_length = len(yaxis_marginal)
-    print(f"Square length of array: {image_pixel_length}\n")
-    
-    cumulate_middle_yaxis = (np.cumsum(yaxis_marginal) <= 0.5)
-    middle_bound_yaxis = cumulate_middle_yaxis.sum()
-    print(f"Middle cumulative bound from left yaxis: {middle_bound_yaxis}")
-    cumulate_quarter_yaxis_left = (np.cumsum(yaxis_marginal) <= 0.05)
-    quarter_bound_yaxis_left = cumulate_quarter_yaxis_left.sum()
-    quarter_middle_bound_yaxis_left_diff = abs(middle_bound_yaxis - quarter_bound_yaxis_left)
-    print(f"Quarter cumulative bound from left yaxis: {quarter_bound_yaxis_left}")
-    cumulate_quarter_yaxis_right = (np.cumsum(yaxis_marginal[::-1]) <= 0.05)
-    quarter_bound_yaxis_right = len(yaxis_marginal) - cumulate_quarter_yaxis_right.sum()
-    quarter_middle_bound_yaxis_right_diff = abs(middle_bound_yaxis - quarter_bound_yaxis_right)
-    print(f"Quarter cumulative from right yaxis: {quarter_bound_yaxis_right}\n")
-    middle_bound_yaxis_shift = abs(quarter_middle_bound_yaxis_right_diff - quarter_middle_bound_yaxis_left_diff)
-    
-    if (quarter_middle_bound_yaxis_right_diff >= quarter_middle_bound_yaxis_left_diff):
-        middle_bound_yaxis_improved  = middle_bound_yaxis + middle_bound_yaxis_shift
-    else:
-        middle_bound_yaxis_improved = middle_bound_yaxis - middle_bound_yaxis_shift
-    
-    cumulate_middle_xaxis = (np.cumsum(xaxis_marginal) <= 0.5)
-    middle_bound_xaxis = cumulate_middle_xaxis.sum()
-    print(f"Middle cumulative bound from left xaxis: {middle_bound_xaxis}")
-    cumulate_quarter_xaxis_left = (np.cumsum(xaxis_marginal) <= 0.05)
-    quarter_bound_xaxis_left = cumulate_quarter_xaxis_left.sum()
-    quarter_middle_bound_xaxis_left_diff = abs(middle_bound_xaxis - quarter_bound_xaxis_left)
-    print(f"Quarter cumulative bound from left xaxis: {quarter_bound_xaxis_left}")
-    cumulate_quarter_xaxis_right = (np.cumsum(xaxis_marginal[::-1]) <= 0.05)
-    quarter_bound_xaxis_right = len(xaxis_marginal) - cumulate_quarter_xaxis_right.sum()
-    quarter_middle_bound_xaxis_right_diff = abs(middle_bound_xaxis - quarter_bound_xaxis_right)
-    print(f"Quarter cumulative from right xaxis: {quarter_bound_xaxis_right}\n")
-    middle_bound_xaxis_shift = abs(quarter_middle_bound_xaxis_right_diff - quarter_middle_bound_xaxis_left_diff)
-    
-    if (quarter_middle_bound_xaxis_right_diff >= quarter_middle_bound_xaxis_left_diff):
-        middle_bound_xaxis_improved  = middle_bound_xaxis + middle_bound_xaxis_shift
-    else:
-        middle_bound_xaxis_improved = middle_bound_xaxis - middle_bound_xaxis_shift
-    
-    planet_radius = 2575 #km
-    planet_pixel_radius = np.arctan(planet_radius/planet_cassini_distance) / pixel_angular_size
-    print(f"Planet raidus in pixels: {planet_pixel_radius}\n")
-    
-    if (planet_pixel_radius >= 50):
-        titan_center_xcoord = middle_bound_xaxis_improved
-        titan_center_ycoord = middle_bound_yaxis_improved
-        extra_apature_radius = 60 #pix
-        titan_apature_radius = planet_pixel_radius + extra_apature_radius
-    else:
-        titan_center_xcoord = middle_bound_xaxis
-        titan_center_ycoord = middle_bound_yaxis
-        extra_apature_radius = 40 #pix
-        titan_apature_radius = planet_pixel_radius + extra_apature_radius
-    
-    x_apature = titan_center_xcoord
-    y_apature = titan_center_ycoord
-    r_apature = titan_apature_radius
-    
-    aperture = CircularAperture((x_apature, y_apature), r=r_apature)
-    annulus = CircularAnnulus((x_apature, y_apature), r_in = (r_apature + 50), r_out = (r_apature + 100))
-    
-    fig, ax = plt.subplots(figsize=(8, 8))
-
-    ax.imshow(image_data, cmap='gray')
-    aperture.plot(color = "white", lw = 1.5,  linestyle = "dashed")
-    annulus.plot(color = "tab:blue", lw = 1.5)
-
-    ax.set_xlabel("CCD's x-axis")
-    ax.set_ylabel("CCD's y-axis")
-    
-    total_image_value = image_data.sum()
-    yaxis_marginal = image_data.sum(axis=1)/total_image_value
-    xaxis_marginal = image_data.sum(axis=0)/total_image_value
-    image_pixel_length = len(yaxis_marginal)
-    
-    if (len(yaxis_marginal) >= 1000):
-        ax.text(750, 980, f"W{image_number}", color="white")
-    else:
-        ax.text(350, 480, f"W{image_number}", color="white")
-        
-    divider = make_axes_locatable(ax)
-    ax_histx = divider.append_axes("top", 1.2, pad=0.1, sharex=ax)
-    ax_histy = divider.append_axes("right", 1.2, pad=0.1, sharey=ax)
-
-    ax_histx.xaxis.set_tick_params(labelbottom=False)
-    ax_histy.yaxis.set_tick_params(labelleft=False)
-    
-    CCD_range = np.arange(0, image_pixel_length)
-
-    ax_histx.plot(CCD_range, xaxis_marginal, color="tab:gray", alpha=0.2)
-    ax_histx.set_xlim(0, len(xaxis_marginal))
-    ax_histx.set_ylim(0)
-    ax_histx.fill_between(CCD_range, 0, xaxis_marginal, color="tab:gray", alpha=0.5)
-    ax_histx.axvline(middle_bound_xaxis, color="tab:blue", linestyle="dashed")
-    ax_histx.axvline(quarter_bound_xaxis_left, color="tab:blue")
-    ax_histx.axvline(quarter_bound_xaxis_right, color="tab:blue")
-    ax_histx.axvline(middle_bound_xaxis - planet_pixel_radius, color="tab:green", linestyle="dashed")
-    ax_histx.axvline(middle_bound_xaxis + planet_pixel_radius, color="tab:green", linestyle="dashed")
-    ax_histx.axvline(x_apature, color="black", linestyle="dashed")
-    ax_histx.axvline(x_apature - r_apature, color="tab:gray", linestyle="dashed")
-    ax_histx.axvline(x_apature + r_apature, color="tab:gray", linestyle="dashed")
-
-    ax_histy.plot(yaxis_marginal, CCD_range, color="tab:gray", alpha=0.2)
-    ax_histy.set_xlim(0)
-    ax_histy.set_ylim(0, len(yaxis_marginal))
-    ax_histy.fill_between(yaxis_marginal, 0, CCD_range, color="tab:gray", alpha=0.5)
-    ax_histy.axhline(middle_bound_yaxis, color="tab:blue", linestyle="dashed")
-    ax_histy.axhline(quarter_bound_yaxis_left, color="tab:blue")
-    ax_histy.axhline(quarter_bound_yaxis_right, color="tab:blue")
-    ax_histy.axhline(middle_bound_yaxis - planet_pixel_radius, color="tab:green", linestyle="dashed")
-    ax_histy.axhline(middle_bound_yaxis + planet_pixel_radius, color="tab:green", linestyle="dashed")
-    ax_histy.axhline(y_apature, color="black", linestyle="dashed")
-    ax_histy.axhline(y_apature - r_apature, color="tab:gray", linestyle="dashed")
-    ax_histy.axhline(y_apature + r_apature, color="tab:gray", linestyle="dashed")
-    
-    #plt.savefig(f"Titan_images/CB2_Wide/apatures/{image_file}_annulus.png", dpi = 120, bbox_inches='tight')
-    plt.show()
-    
-    return (aperture, annulus)
 
 def image_photometry(image_file, image_number, planet_distance_in_km, exposure_time, aperture, annulus_aperture):
     
@@ -310,9 +360,8 @@ def image_photometry(image_file, image_number, planet_distance_in_km, exposure_t
         
     print(image_photometry)
     
-    with open(f"Titan_images/CB2_Wide/apatures/W{image_number}_photometry.txt", "w") as out_file:
+    with open(f"Titan_images/CB2_Wide/image_photometry/W{image_number}_photometry.txt", "w") as out_file:
         line = str(image_photometry)
         out_file.write(line)
         
-    return (image_number, titan_aperture_sky_reduced, titan_intensity)    
-    
+    return (image_number, titan_aperture_sky_reduced, titan_intensity)
