@@ -159,12 +159,13 @@ def get_titan_aperture(image_data, planet_cassini_distance, pixel_angular_size):
     y_apature = aperture_center_ycoord
     r_apature = aperture_radius
     
+    aperture2 = CircularAperture((middle_bound_xaxis, middle_bound_yaxis), r=r_apature)
     aperture = CircularAperture((x_apature, y_apature), r=r_apature)
     inner_annulus = r_apature + 5
     outer_annulus = inner_annulus + 10
     annulus = CircularAnnulus((x_apature, y_apature), r_in=inner_annulus, r_out=outer_annulus)
     
-    plot_image_aperture(image_data, x_apature, y_apature, r_apature, aperture, annulus, 
+    plot_image_aperture(image_data, x_apature, y_apature, r_apature, aperture, aperture2, annulus, 
                         middle_bound_xaxis, middle_bound_yaxis)
     
     if ((x_apature + outer_annulus) >= image_pixel_length):
@@ -183,13 +184,14 @@ def get_titan_aperture(image_data, planet_cassini_distance, pixel_angular_size):
     
     return None #(aperture, annulus)
 
-def plot_image_aperture(image_data, x_apature, y_apature, r_apature, aperture, annulus, 
+def plot_image_aperture(image_data, x_apature, y_apature, r_apature, aperture, aperture2, annulus, 
                         middle_bound_xaxis, middle_bound_yaxis):
     
     fig, ax = plt.subplots(figsize=(8, 8))
 
     ax.imshow(image_data, cmap='gray')
-    aperture.plot(color = "blue", lw = 1.5, linestyle = "dashed")
+    aperture2.plot(color = "blue", lw = 1.5, linestyle = "dashed")
+    aperture.plot(color = "white", lw = 1.5, linestyle = "dashed")
     #annulus.plot(color = "tab:blue", lw = 1.5)
 
     ax.set_xlabel("CCD's x-axis")
@@ -312,12 +314,13 @@ def get_titan_aperture_2(image_data, planet_cassini_distance, pixel_angular_size
     y_apature = aperture_center_ycoord
     r_apature = aperture_radius
     
+    aperture2 = CircularAperture((max_xaxis, max_yaxis), r=r_apature)
     aperture = CircularAperture((x_apature, y_apature), r=r_apature)
     inner_annulus = r_apature + 5
     outer_annulus = inner_annulus + 10
     annulus = CircularAnnulus((x_apature, y_apature), r_in=inner_annulus, r_out=outer_annulus)
     
-    plot_image_aperture_2(image_data, x_apature, y_apature, r_apature, aperture, annulus, 
+    plot_image_aperture_2(image_data, x_apature, y_apature, r_apature, aperture, aperture2, annulus, 
                         max_xaxis, xaxis_horizontal_limit, max_yaxis, yaxis_horizontal_limit)
     
     if ((x_apature + outer_annulus) >= image_pixel_length):
@@ -336,13 +339,15 @@ def get_titan_aperture_2(image_data, planet_cassini_distance, pixel_angular_size
     
     return None #(aperture, annulus)
 
-def plot_image_aperture_2(image_data, x_apature, y_apature, r_apature, aperture, annulus, 
+def plot_image_aperture_2(image_data, x_apature, y_apature, r_apature, aperture, aperture2, annulus, 
                         max_xaxis_center, xaxis_horizontal_limit, max_yaxis_center, yaxis_horizontal_limit):
     
     fig, ax = plt.subplots(figsize=(8, 8))
 
     ax.imshow(image_data, cmap='gray')
-    aperture.plot(color = "blue", lw = 1.5, linestyle = "dashed")
+    aperture2.plot(color="blue", lw=1.5, linestyle="dashed")
+    aperture.plot(color="white", lw=1.5, linestyle="dashed")
+    
     #annulus.plot(color = "tab:blue", lw = 1.5)
 
     ax.set_xlabel("CCD's x-axis")
@@ -417,13 +422,43 @@ def draw_titan_aperture(image_data, planet_cassini_distance, pixel_angular_size)
     max_xaxis_margin = max_xaxis_margin[0]
     print(f"xaxis center: {max_xaxis_margin}")
     
+    xaxis_horizontal_limit = max(xaxis_marginal) / 8
+    xaxis_left_bound_booleen = (xaxis_marginal[:max_xaxis_margin] <= xaxis_horizontal_limit)
+    xaxis_left_bound = xaxis_left_bound_booleen.sum()
+    xaxis_left_bound_to_maxvalue_bound_distance = abs(max_xaxis_margin - xaxis_left_bound)
+    
+    xaxis_right_bound_booleen = (xaxis_marginal[max_xaxis_margin:][::-1] <= xaxis_horizontal_limit)
+    xaxis_right_bound = len(xaxis_marginal) - xaxis_right_bound_booleen.sum()
+    xaxis_right_bound_to_maxvalue_bound_distance = abs(max_xaxis_margin - xaxis_right_bound)
+    
+    xaxis_center_shift = abs(xaxis_left_bound_to_maxvalue_bound_distance - xaxis_right_bound_to_maxvalue_bound_distance) / 1
+    if (xaxis_right_bound_to_maxvalue_bound_distance >= xaxis_left_bound_to_maxvalue_bound_distance):
+        improved_center_xaxis = max_xaxis_margin + xaxis_center_shift
+    else:
+        improved_center_xaxis = max_xaxis_margin - xaxis_center_shift
+    
     find_max_yaxis_margin = (max(yaxis_marginal) == yaxis_marginal)
     max_yaxis_margin = CCD_range[find_max_yaxis_margin]
     max_yaxis_margin = max_yaxis_margin[0]
     print(f"yaxis center: {max_yaxis_margin}")
     
-    x_apature = max_xaxis_margin
-    y_apature = max_yaxis_margin
+    yaxis_horizontal_limit = max(yaxis_marginal) / 8
+    yaxis_left_bound_booleen = (yaxis_marginal[:max_yaxis_margin] <= yaxis_horizontal_limit)
+    yaxis_left_bound = yaxis_left_bound_booleen.sum()
+    yaxis_left_bound_to_maxvalue_bound_distance = abs(max_yaxis_margin - yaxis_left_bound)
+    
+    yaxis_right_bound_booleen = (yaxis_marginal[max_yaxis_margin:][::-1] <= yaxis_horizontal_limit)
+    yaxis_right_bound = len(yaxis_marginal) - yaxis_right_bound_booleen.sum()
+    yaxis_right_bound_to_maxvalue_bound_distance = abs(max_yaxis_margin - yaxis_right_bound)
+    
+    yaxis_center_shift = abs(yaxis_left_bound_to_maxvalue_bound_distance - yaxis_right_bound_to_maxvalue_bound_distance) / 1
+    if (yaxis_right_bound_to_maxvalue_bound_distance >= yaxis_left_bound_to_maxvalue_bound_distance):
+        improved_center_yaxis = max_yaxis_margin + yaxis_center_shift
+    else:
+        improved_center_yaxis = max_yaxis_margin - yaxis_center_shift
+    
+    x_apature = improved_center_xaxis
+    y_apature = improved_center_yaxis
     
     
     planet_radius = 2950 #km
@@ -437,12 +472,14 @@ def draw_titan_aperture(image_data, planet_cassini_distance, pixel_angular_size)
     
     #------------------------------------------------------------------
     
+    aperture2 = CircularAperture((max_xaxis_margin, max_yaxis_margin), r=r_apature)
     aperture = CircularAperture((x_apature, y_apature), r=r_apature)
     
     fig, ax = plt.subplots(figsize=(8, 8))
 
     ax.imshow(image_data, origin="lower", cmap="gray")
-    aperture.plot(color = "blue", lw = 1.5, linestyle = "dashed")
+    aperture2.plot(color="blue", lw=1.5, linestyle="dashed")
+    aperture.plot(color="white", lw=1.5, linestyle="dashed")
 
     ax.set_xlabel("CCD's x-axis")
     ax.set_ylabel("CCD's y-axis")
@@ -463,6 +500,10 @@ def draw_titan_aperture(image_data, planet_cassini_distance, pixel_angular_size)
     ax_histx.axvline(x_apature, color="black", linestyle="dashed")
     ax_histx.axvline(x_apature + r_apature, color="tab:gray", linestyle="dashed")
     ax_histx.axvline(x_apature - r_apature, color="tab:gray", linestyle="dashed")
+    ax_histx.axvline(max_xaxis_margin, color="blue")
+    ax_histx.axvline(max_xaxis_margin + r_apature, color="blue")
+    ax_histx.axvline(max_xaxis_margin - r_apature, color="blue")
+    
     
     ax_histy.plot(yaxis_marginal, square_image_range, color="tab:gray", alpha=0.2)
     ax_histy.set_xlim(0)
@@ -471,6 +512,9 @@ def draw_titan_aperture(image_data, planet_cassini_distance, pixel_angular_size)
     ax_histy.axhline(y_apature, color="black", linestyle="dashed")
     ax_histy.axhline(y_apature + r_apature, color="tab:gray", linestyle="dashed")
     ax_histy.axhline(y_apature - r_apature, color="tab:gray", linestyle="dashed")
+    ax_histy.axhline(max_yaxis_margin, color="blue")
+    ax_histy.axhline(max_yaxis_margin + r_apature, color="blue")
+    ax_histy.axhline(max_yaxis_margin - r_apature, color="blue")
     
     return None
 
