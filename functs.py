@@ -4,6 +4,9 @@ import pdr
 from astropy.io import fits
 from mpl_toolkits.axes_grid1 import make_axes_locatable
 from photutils.aperture import CircularAperture, CircularAnnulus, ApertureStats, aperture_photometry
+from astropy.visualization import simple_norm
+from astropy.visualization import ZScaleInterval
+
 
 def proper_image_name(image_numbers, camera):
     # Input: an 1-line array of image numbers
@@ -91,7 +94,7 @@ def get_image_data(image_file, camera_filter, camera):
     
     return image_data
 
-def get_titan_aperture(image_data, planet_cassini_distance, pixel_angular_size): #!!!
+def get_titan_aperture(image_data, planet_cassini_distance, pixel_angular_size, extra_apature_radius = 0): #!!!
     
     total_image_value = image_data.sum()
     print(f"Total image value: {total_image_value}")
@@ -145,13 +148,11 @@ def get_titan_aperture(image_data, planet_cassini_distance, pixel_angular_size):
     if (planet_pixel_radius >= 50):
         aperture_center_xcoord = middle_bound_xaxis_improved
         aperture_center_ycoord = middle_bound_yaxis_improved
-        extra_apature_radius = 0 #pix
         aperture_radius = planet_pixel_radius + extra_apature_radius
         print(f"Aperture raidus in pixels: {aperture_radius}\n")
     else:
         aperture_center_xcoord = middle_bound_xaxis
         aperture_center_ycoord = middle_bound_yaxis
-        extra_apature_radius = 0 #pix
         aperture_radius = planet_pixel_radius + extra_apature_radius
         print(f"Aperture radius in pixels: {aperture_radius}\n")
     
@@ -161,8 +162,9 @@ def get_titan_aperture(image_data, planet_cassini_distance, pixel_angular_size):
     
     aperture2 = CircularAperture((middle_bound_xaxis, middle_bound_yaxis), r=r_apature)
     aperture = CircularAperture((x_apature, y_apature), r=r_apature)
+    
     inner_annulus = r_apature + 5
-    outer_annulus = inner_annulus + 10
+    outer_annulus = inner_annulus + 15
     annulus = CircularAnnulus((x_apature, y_apature), r_in=inner_annulus, r_out=outer_annulus)
     
     plot_image_aperture(image_data, x_apature, y_apature, r_apature, aperture, aperture2, annulus, 
@@ -182,7 +184,7 @@ def get_titan_aperture(image_data, planet_cassini_distance, pixel_angular_size):
         print("!!! Titan outside Image along the yaxis !!!\n")
         return None
     
-    return None #(aperture, annulus)
+    return (aperture, annulus)
 
 def plot_image_aperture(image_data, x_apature, y_apature, r_apature, aperture, aperture2, annulus, 
                         middle_bound_xaxis, middle_bound_yaxis):
@@ -192,7 +194,7 @@ def plot_image_aperture(image_data, x_apature, y_apature, r_apature, aperture, a
     ax.imshow(image_data, cmap='gray')
     aperture2.plot(color = "blue", lw = 1.5, linestyle = "dashed")
     aperture.plot(color = "white", lw = 1.5, linestyle = "dashed")
-    #annulus.plot(color = "tab:blue", lw = 1.5)
+    annulus.plot(color = "green", lw = 1.5)
 
     ax.set_xlabel("CCD's x-axis")
     ax.set_ylabel("CCD's y-axis")
@@ -235,7 +237,7 @@ def plot_image_aperture(image_data, x_apature, y_apature, r_apature, aperture, a
     
     return None
 
-def get_titan_aperture_2(image_data, planet_cassini_distance, pixel_angular_size): #!!!
+def get_titan_aperture_2(image_data, planet_cassini_distance, pixel_angular_size, extra_apature_radius = 0): #!!!
     
     total_image_value = image_data.sum()
     print(f"Total image value: {total_image_value}")
@@ -300,13 +302,11 @@ def get_titan_aperture_2(image_data, planet_cassini_distance, pixel_angular_size
     if (planet_pixel_radius >= 50):
         aperture_center_xcoord = improved_center_xaxis
         aperture_center_ycoord = improved_center_yaxis
-        extra_apature_radius = 0 #pix
         aperture_radius = planet_pixel_radius + extra_apature_radius
         print(f"Aperture raidus in pixels: {aperture_radius}\n")
     else:
         aperture_center_xcoord = max_xaxis
         aperture_center_ycoord = max_yaxis
-        extra_apature_radius = 0 #pix
         aperture_radius = planet_pixel_radius + extra_apature_radius
         print(f"Aperture radius in pixels: {aperture_radius}\n")
     
@@ -317,7 +317,7 @@ def get_titan_aperture_2(image_data, planet_cassini_distance, pixel_angular_size
     aperture2 = CircularAperture((max_xaxis, max_yaxis), r=r_apature)
     aperture = CircularAperture((x_apature, y_apature), r=r_apature)
     inner_annulus = r_apature + 5
-    outer_annulus = inner_annulus + 10
+    outer_annulus = inner_annulus + 15
     annulus = CircularAnnulus((x_apature, y_apature), r_in=inner_annulus, r_out=outer_annulus)
     
     plot_image_aperture_2(image_data, x_apature, y_apature, r_apature, aperture, aperture2, annulus, 
@@ -337,7 +337,7 @@ def get_titan_aperture_2(image_data, planet_cassini_distance, pixel_angular_size
         print("!!! Titan outside Image along the yaxis !!!\n")
         return None
     
-    return None #(aperture, annulus)
+    return (aperture, annulus)
 
 def plot_image_aperture_2(image_data, x_apature, y_apature, r_apature, aperture, aperture2, annulus, 
                         max_xaxis_center, xaxis_horizontal_limit, max_yaxis_center, yaxis_horizontal_limit):
@@ -347,8 +347,7 @@ def plot_image_aperture_2(image_data, x_apature, y_apature, r_apature, aperture,
     ax.imshow(image_data, cmap='gray')
     aperture2.plot(color="blue", lw=1.5, linestyle="dashed")
     aperture.plot(color="white", lw=1.5, linestyle="dashed")
-    
-    #annulus.plot(color = "tab:blue", lw = 1.5)
+    annulus.plot(color = "green", lw = 1.5)
 
     ax.set_xlabel("CCD's x-axis")
     ax.set_ylabel("CCD's y-axis")
@@ -393,12 +392,25 @@ def plot_image_aperture_2(image_data, x_apature, y_apature, r_apature, aperture,
     
     return None
 
-def draw_titan_aperture(image_data, planet_cassini_distance, pixel_angular_size): #!!!
+def draw_titan_aperture(image_data, planet_cassini_distance, pixel_angular_size, method, extra_apature_radius = 0): #!!!
     
-    total_image_value = image_data.sum()
+    zscale_interval = ZScaleInterval(contrast=0.05)
+    zscale_image_data = zscale_interval(image_data)
+    
+    if (method == 'log10'):
+        snorm = simple_norm(zscale_image_data, 'log', log_a=10)
+        zscaled_normalized_image = snorm(zscale_image_data) 
+    elif (method == 'sqrt'):
+        snorm = simple_norm(zscale_image_data, 'sqrt')
+        zscaled_normalized_image = snorm(zscale_image_data)
+    elif (method == 'squared'):
+        snorm = simple_norm(zscale_image_data, 'power', power=2)
+        zscaled_normalized_image = snorm(zscale_image_data)
+    
+    total_image_value = zscaled_normalized_image.sum()
     print(f"Total image value: {total_image_value}")
-    xaxis_marginal = image_data.sum(axis=0)/total_image_value
-    yaxis_marginal = image_data.sum(axis=1)/total_image_value
+    xaxis_marginal = zscaled_normalized_image.sum(axis=0)/total_image_value
+    yaxis_marginal = zscaled_normalized_image.sum(axis=1)/total_image_value
     image_pixel_length = len(yaxis_marginal)
     print(f"Square length of array: {image_pixel_length}\n")
 
@@ -464,8 +476,7 @@ def draw_titan_aperture(image_data, planet_cassini_distance, pixel_angular_size)
     planet_radius = 2950 #km
     planet_pixel_radius = np.arctan(planet_radius/planet_cassini_distance) / pixel_angular_size
     print(f"Titan raidus in pixels: {planet_pixel_radius}")
-    extra_radius = 0
-    aperture_radius = planet_pixel_radius + extra_radius
+    aperture_radius = planet_pixel_radius + extra_apature_radius
     print(f"Aperture raidus in pixels: {aperture_radius}\n")
     
     r_apature = aperture_radius
@@ -475,11 +486,16 @@ def draw_titan_aperture(image_data, planet_cassini_distance, pixel_angular_size)
     aperture2 = CircularAperture((max_xaxis_margin, max_yaxis_margin), r=r_apature)
     aperture = CircularAperture((x_apature, y_apature), r=r_apature)
     
+    inner_annulus = r_apature + 5
+    outer_annulus = inner_annulus + 15
+    annulus = CircularAnnulus((x_apature, y_apature), r_in=inner_annulus, r_out=outer_annulus)
+    
     fig, ax = plt.subplots(figsize=(8, 8))
 
-    ax.imshow(image_data, origin="lower", cmap="gray")
+    ax.imshow(zscaled_normalized_image, origin="lower", cmap="gray")
     aperture2.plot(color="blue", lw=1.5, linestyle="dashed")
     aperture.plot(color="white", lw=1.5, linestyle="dashed")
+    annulus.plot(color = "green", lw = 1.5)
 
     ax.set_xlabel("CCD's x-axis")
     ax.set_ylabel("CCD's y-axis")
@@ -504,7 +520,6 @@ def draw_titan_aperture(image_data, planet_cassini_distance, pixel_angular_size)
     ax_histx.axvline(max_xaxis_margin + r_apature, color="blue")
     ax_histx.axvline(max_xaxis_margin - r_apature, color="blue")
     
-    
     ax_histy.plot(yaxis_marginal, square_image_range, color="tab:gray", alpha=0.2)
     ax_histy.set_xlim(0)
     ax_histy.set_ylim(0, len(yaxis_marginal))
@@ -516,11 +531,9 @@ def draw_titan_aperture(image_data, planet_cassini_distance, pixel_angular_size)
     ax_histy.axhline(max_yaxis_margin + r_apature, color="blue")
     ax_histy.axhline(max_yaxis_margin - r_apature, color="blue")
     
-    return None
+    return (aperture, annulus)
 
-def image_photometry(image_file, image_number, planet_distance_in_km, exposure_time, aperture, annulus_aperture):
-    
-    image_data = get_image_data(image_file)
+def image_photometry(image_data, planet_distance_in_km, exposure_time, aperture, annulus_aperture):
     
     km_to_m = 1e3
     planet_distance = planet_distance_in_km * km_to_m
@@ -533,19 +546,17 @@ def image_photometry(image_file, image_number, planet_distance_in_km, exposure_t
     print(f"The aperture area: {aperture_area} pix^2")
     
     image_photometry = aperture_photometry(image_data, aperture)
-    image_photometry["id"] = image_number
     image_photometry["total_sky"] = total_sky
-    titan_aperture_sky_reduced = image_photometry["aperture_sum"] - total_sky
-    image_photometry["aperture_sum_skysub"] = titan_aperture_sky_reduced
+    aperture_count_sky_reduced = image_photometry["aperture_sum"] - total_sky
+    image_photometry["aperture_sum_skysub"] = aperture_count_sky_reduced
     titan_intensity = image_photometry["aperture_sum_skysub"] / (exposure_time * 4*np.pi * planet_distance**2)
     image_photometry["intenisty"] = titan_intensity
     #for col in image_photometry.colnames:
     #    image_photometry[col].info.format = '%.8g'
         
-    print(image_photometry)
+    #print(image_photometry)
+    #print(f'Total count: {image_photometry["aperture_sum_skysub"][0]}')
     
-    with open(f"Titan_images/CB2_Wide/image_photometry/W{image_number}_photometry.txt", "w") as out_file:
-        line = str(image_photometry)
-        out_file.write(line)
-        
-    return (image_number, titan_aperture_sky_reduced, titan_intensity)
+    total_aperture_count_bkgsub = image_photometry["aperture_sum_skysub"][0]
+    
+    return (total_aperture_count_bkgsub)
