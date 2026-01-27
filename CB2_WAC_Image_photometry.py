@@ -30,9 +30,19 @@ fields = ['Image file', 'Satellite distance [km]', 'Exposure time [s]', 'Gain [e
           'Aperture count [DN]', 'Aperture area', 'Annulus radius', 'Sky median [DN]',
           'Aperture area sky count [DN]', 'Source count [DN]', 'Source intenisty [e per s per m2]', 'Phase angle [deg]']
 
-csvpath = f"Titan_images/{camera_filter}_{camera}/"
+total_rejected_images = 0
+total_processed_images = 0
 
-with open(csvpath + 'photometry_data.csv', 'w') as csvfile:
+num_of_images_with_different_gain = 0
+images_with_different_gain = []
+
+fields = ['Image file', 'Satellite distance [km]', 'Exposure time [s]', 'Gain [e per DN]',
+          'Aperture count [DN]', 'Aperture area', 'Annulus radius', 'Sky median [DN]',
+          'Aperture area sky count [DN]', 'Source count [DN]', 'Source intenisty [e per s per m2]', 'Phase angle [deg]']
+
+path = f"Titan_images/{camera_filter}_{camera}/"
+
+with open(path + "photometry_data.csv", "w") as csvfile:
     csvwriter = csv.writer(csvfile)
     csvwriter.writerow(fields)
 
@@ -55,25 +65,28 @@ for n in range(image_files_length):
     
     try:
         aperture, annulus = functs.get_titan_aperture(image_data, satellite_distance, pixel_angular_size)
-        plt.savefig(f"Titan_images/{camera_filter}_{camera}/apertures/{image_files[n]}_aperture.png", dpi = 120, bbox_inches='tight')
-        plt.show()
-    except Exception:
-        traceback.print_exc()
+    except Exception as e:
+        with open(path + f"aperture_rejects/{image_files[n]}_error.txt", "w") as txtfile:
+            txtfile.write(f"{e}")
+            
         plt.savefig(f"Titan_images/{camera_filter}_{camera}/aperture_rejects/{image_files[n]}_aperture.png", dpi = 120, bbox_inches='tight')
         plt.show()
         total_rejected_images += 1
     else:
-        print("Titan found inside the CCD image.\n")
+        plt.savefig(f"Titan_images/{camera_filter}_{camera}/apertures/{image_files[n]}_aperture.png", dpi = 120, bbox_inches='tight')
+        plt.show()
+        
         photometric_data = functs.image_photometry(image_data, satellite_distance, exposure_time[n], gain, aperture, annulus)
         photometric_data = [image_files[n]] + photometric_data + [phase_angle[n]]
         photometric_data = np.array([photometric_data])
         
-        with open(csvpath + 'photometry_data.csv', 'a') as csvfile:
+        with open(path + "photometry_data.csv", "a") as csvfile:
             csvwriter = csv.writer(csvfile)
             csvwriter.writerows(photometric_data)
         
         total_processed_images += 1
         
-print(f"Total number of images: {image_files_length}")
+print(f"\nTotal number of images: {image_files_length}")
 print(f"Number of rejected images: {total_rejected_images}")
 print(f"Number of processed images: {total_processed_images}")
+
