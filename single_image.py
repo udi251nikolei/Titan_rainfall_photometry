@@ -25,7 +25,7 @@ pixel_angular_size = 59.749e-6 #rad per pix
 
 xaxis_aperture = "improved"
 yaxis_aperture = "improved"
-annulus_width = 20
+annulus_width = 30
 
 #--------------------------------------------------------
 
@@ -46,12 +46,13 @@ try:
 except Exception as e:
     print(f"{e}\n")
 
-range_of_aperture_sizes = np.arange(-20, 65, 5)
+range_of_aperture_sizes = np.arange(-20, 55, 5)
 aperture_sizes = []
 aperture_counts = []
 sky_medians = []
 source_counts = []
-SNR_list = []
+SNRs = []
+aperture_annulus_area_ratios = []
 
 for i in range(len(range_of_aperture_sizes)):
     try:
@@ -73,6 +74,8 @@ for i in range(len(range_of_aperture_sizes)):
         sky_medians.append(sky_median)
         source_counts.append(source_count)
         aperture_sizes.append(range_of_aperture_sizes[i])
+        SNRs.append(float(SNR))
+        aperture_annulus_area_ratios.append(float(annulus_area/aperture_area))
         
         km_to_m = 1e3
         #intensity = (source_count * gain) / (exposure_time * 4*np.pi * (planet_cassini_distance * km_to_m)**2)
@@ -95,6 +98,9 @@ plt.show()
 plt.plot(aperture_sizes, source_counts, marker='o')
 plt.title('Source counts')
 plt.show()
+
+print(f'SNRs: {SNRs}\n')
+print(f'annulus area / aperture area: {aperture_annulus_area_ratios}\n')
         
         
 xaxis_FWHM_left, xaxis_FWHM_right, yaxis_FWHM_left, yaxis_FWHM_right = functs.FWHM(image_data)
