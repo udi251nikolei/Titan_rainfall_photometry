@@ -1,50 +1,53 @@
 import numpy as np
 import matplotlib.pyplot as plt
 import csv
-import traceback
 
 import functs
 import Get_image_info
 
 image_files = Get_image_info.CB3_NAC_image_files
-image_numbers = Get_image_info.CB3_NAC_image_numbers
 planet_cassini_distance = Get_image_info.CB3_NAC_planet_cassini_distance
 exposure_time = Get_image_info.CB3_NAC_exposure
 image_gain = Get_image_info.CB3_NAC_gain
 phase_angle = Get_image_info.CB3_NAC_phase_angle
+OBStime = Get_image_info.CB3_NAC_OBStime
+
 image_files_length = len(image_files)
 
 camera_filter = "CB3"
 camera = "NAC" # !!! Note: always capitalize
 
-pixel_angular_size = 5.9907e-6 #rad per pix
+pixel_angular_size = 5.9907e-6 #[rad per pix]
+
+xaxis_aperture = "improved"
+yaxis_aperture = "improved"
+annulus_width = 30
+#------------------------------------------------------------
 
 total_rejected_images = 0
+image_index_rejected = []
 total_processed_images = 0
+#image_index_processed = []
 
 num_of_images_with_different_gain = 0
 images_with_different_gain = []
 
-fields = ['Image file', 'Satellite distance [km]', 'Exposure time [s]', 'Gain [e per DN]',
-          'Aperture count [DN]', 'Aperture area', 'Annulus radius', 'Sky median [DN]',
-          'Aperture area sky count [DN]', 'Source count [DN]', 'Source intenisty [e per s per m2]', 'Phase angle [deg]']
+failed_image_call = 0
+failed_image_call_file = []
 
-total_rejected_images = 0
-total_processed_images = 0
-
-num_of_images_with_different_gain = 0
-images_with_different_gain = []
-
-fields = ['Image file', 'Satellite distance [km]', 'Exposure time [s]', 'Gain [e per DN]',
-          'Aperture count [DN]', 'Aperture area', 'Annulus radius', 'Sky median [DN]',
-          'Aperture area sky count [DN]', 'Source count [DN]', 'Source intenisty [e per s per m2]', 'Phase angle [deg]']
+fields = ['Image file', 'Observation time [MJD]', 'Phase angle [deg]', 'Planet-satellite distance [km]', 'Aperture count', 'Aperture area', 'Sky median', 'Sky std', 'Source count', 'Exposure time [s]', 'Gain']
 
 path = f"Titan_images/{camera_filter}_{camera}/"
 
-with open(path + "photometry_data.csv", "w") as csvfile:
+xaxis_aperture = "improved"
+yaxis_aperture = "improved"
+annulus_width = 15
+
+with open(path + f"{camera_filter}_{camera}_photometry_data.csv", "w") as csvfile:
     csvwriter = csv.writer(csvfile)
     csvwriter.writerow(fields)
-
+    
+# Inital iteration
 for n in range(image_files_length):
     print(f"IMG {n+1}: {image_files[n]}")
     
@@ -54,40 +57,63 @@ for n in range(image_files_length):
     elif (image_gain[n] == '29'):
         gain = 29
         satellite_distance = planet_cassini_distance[n]
-    else:
-        print("!!! Found image with different gain number other than 29 or 95 !!!")
-        images_with_different_gain.append(str(image_files[n]))
+    elif (image_gain[n] == '12'):
+        gain = 12
         satellite_distance = planet_cassini_distance[n]
+    elif (image_gain[n] == '215'):
+        gain = 215
+        satellite_distance = planet_cassini_distance[n] * 4
+    else:
+        print("Image has gain different than stated")   
+        images_with_different_gain.append(str(image_files[n]))
         num_of_images_with_different_gain += 1
+        
+        gain = int(image_gain[n])
+        satellite_distance = planet_cassini_distance[n]
 
-    image_data = functs.get_image_data(image_files[n], camera_filter, camera)
+    try:
+        image_data = functs.get_image_data(image_files[n], camera_filter, camera)
+    except Exception as e:
+        print(f"{e}\n")
+        failed_image_call_file.append(str(image_files[n]))
+        failed_image_call += 1
+        
+    image_size = image_data.shape[0]
     
     try:
-        aperture, annulus = functs.get_titan_aperture(image_data, satellite_distance, pixel_angular_size)
-    except Exception as e:
-        with open(path + f"aperture_rejects/{image_files[n]}_error.txt", "w") as txtfile:
-            txtfile.write(f"{e}")
+        xaxis_shift_factor = 0.9
+        yaxis_shift_factor = 0.9
+        
+        if (image_size >= 1000):
+            extra_aperture_radius = 30
+            annulus_width = 40
+        else:
+            extra_aperture_radius = 20
+            annulus_width = 35
             
-        plt.savefig(f"Titan_images/{camera_filter}_{camera}/aperture_rejects/{image_files[n]}_aperture.png", dpi = 120, bbox_inches='tight')
+        aperture, annulus = functs.get_titan_aperture(image_data, satellite_distance, pixel_angular_size, 
+                                                              xaxis_shift_factor, yaxis_shift_factor,
+                                                              extra_aperture_radius, annulus_width)
+    except Exception as e:
+        print(f"{e}")
+        plt.savefig(path + f"aperture_rejects/{image_files[n]}.png", dpi = 120, bbox_inches='tight')
         plt.show()
+        
         total_rejected_images += 1
+        image_index_rejected.append(n)
     else:
-        plt.savefig(f"Titan_images/{camera_filter}_{camera}/apertures/{image_files[n]}_aperture.png", dpi = 120, bbox_inches='tight')
+        plt.savefig(path + f"apertures/{image_files[n]}.png", dpi = 120, bbox_inches='tight')
         plt.show()
-        
-        photometric_data = functs.image_photometry(image_data, satellite_distance, exposure_time[n], gain, aperture, annulus)
-        photometric_data = [image_files[n]] + photometric_data + [phase_angle[n]]
-        photometric_data = np.array([photometric_data])
-        
-        with open(path + "photometry_data.csv", "a") as csvfile:
-            csvwriter = csv.writer(csvfile)
-            csvwriter.writerows(photometric_data)
         
         total_processed_images += 1
-        
-print(f"\nTotal number of images: {image_files_length}")
-print(f"Number of rejected images: {total_rejected_images}")
-print(f"Number of processed images: {total_processed_images}")
-print(f"Number of different gains other than 29 or 95: {num_of_images_with_different_gain}")
-print(f"Images with different gain = {images_with_different_gain}")
+            
+        aperture_count, aperture_area, sky_median, sky_std, source_count = functs.image_photometry(image_data, aperture, annulus)
+        photometric_data = np.array([[image_files[n], OBStime[n], phase_angle[n], planet_cassini_distance[n], aperture_count, aperture_area, sky_median, sky_std, source_count, exposure_time[n], gain]])
 
+        with open(path + f"{camera_filter}_{camera}_photometry_data.csv", "a") as csvfile:
+            csvwriter = csv.writer(csvfile)
+            csvwriter.writerow(photometric_data)
+        
+print(f'Total no. of images: {image_files_length}')
+print(f'No. of rejected images: {total_rejected_images}')
+print(f'No. of processed images: {total_processed_images}')
