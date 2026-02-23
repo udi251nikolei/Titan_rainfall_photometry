@@ -1,12 +1,12 @@
 import functs
 import Get_image_info
 
-image_files = Get_image_info.CB3_NAC_image_files #!!! Need to change camera typr here
+image_files = Get_image_info.CB3_WAC_image_files #!!! Need to change camera typr here
 image_files_length = len(image_files)
 print(f"Total number of image files: {image_files_length}\n")
 
 camera_filter = "CB3"
-camera = "NAC" #!!! Need to change camera typr here; always capitalize
+camera = "WAC" #!!! Need to change camera typr here; always capitalize
 
 total_converted_images = 0
 total_failed_conversion = 0
