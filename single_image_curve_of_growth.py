@@ -5,15 +5,15 @@ from astropy.io import fits
 
 import functs
 
-image_file = "N1551056813_1"
-planet_cassini_distance = 1291429.546
+image_file = "W1557735069_1"
+planet_cassini_distance = 241851.914
 image_gain = "29"
 
 camera_filter = "CB3"
-camera = "NAC" # !!! Note: always capitalize
+camera = "WAC" # !!! Note: always capitalize
 
-#pixel_angular_size = 59.749e-6 #rad per pix
-pixel_angular_size = 5.9907e-6 #rad per pix
+pixel_angular_size = 59.749e-6 #rad per pix
+#pixel_angular_size = 5.9907e-6 #rad per pix
 
 #------------------------------------------------------
 
@@ -128,7 +128,7 @@ def check_Canny_edge_detection_parameters(image_file, camera_filter, camera):
             
     return result
 
-#------------------------------------------------------------------
+#--------------------------------------------------------
 
 if (image_gain == '95'):
     gain = 95
@@ -150,45 +150,37 @@ if CannyEdge is None:
     
 else:
     aperture_center = CannyEdge[0, 0, :2]
-    Canny_edge_radius = CannyEdge[0, 0, -1]
-    print(f'CannyEdge center: {aperture_center}')
-    print(f'Canny edge radius: {Canny_edge_radius}')
-    extra_aperture_radius = 20
+    CannyEdge_radius = CannyEdge[0, 0, -1]
+    
+    extra_aperture_radius = np.arange(-50, 60, 5)
     annulus_width = 10
-    try:
-        aperture, annulus = functs.get_titan_aperture(image_data, 
-                                                      satellite_distance, 
-                                                      pixel_angular_size,
-                                                      aperture_center, 
-                                                      extra_aperture_radius, 
-                                                      annulus_width)
-        
-    except Exception as e:
-        print(f"3. {e}")
-        plt.show()
+    
+    aperture_sizes = []
+    source_counts = []
+    for i in range(len(extra_aperture_radius)):
+        print(f'\nExtra aperture: {extra_aperture_radius[i]}')
+        print(f'Canny Radius: {CannyEdge_radius}')
+        try:
+            aperture, annulus = functs.get_titan_aperture(image_data, 
+                                                          satellite_distance, 
+                                                          pixel_angular_size,
+                                                          aperture_center, 
+                                                          extra_aperture_radius[i], 
+                                                          annulus_width)
             
-    else:
-        plt.show()
-        
-        planet_radius = 2675 #km
-        target_radius = functs.CCD_Target_radius(planet_radius, planet_cassini_distance, pixel_angular_size)
-        print(f"Target radius: {target_radius/2}")
-        
-        aperture_count, aperture_area, sky_median, sky_std, source_count = functs.image_photometry(image_data, aperture, annulus)
-        print(aperture_count)
-        print(aperture_area)
-        print(sky_median)
-        print(sky_std)
-        print(source_count)
-        
-        if gain==95:
-            #print(source_count*4 * 4*np.pi * planet_cassini_distance**2)
-            print(source_count*4 / (np.pi * target_radius**2))
+        except Exception as e:
+           print(f"3. {e}")
+           plt.show()
+           
+           break
+               
         else:
-            #print(source_count * 4*np.pi * planet_cassini_distance**2)
-            print(source_count / (np.pi * target_radius**2))
-        
-'''
-output = check_Canny_edge_detection_parameters(image_file, camera_filter, camera)
-print(output)
-'''
+           plt.show()
+           
+           aperture_count, aperture_area, sky_median, sky_std, source_count = functs.image_photometry(image_data, aperture, annulus)
+           aperture_sizes.append(extra_aperture_radius[i])
+           source_counts.append(source_count)
+   
+    plt.plot(aperture_sizes, source_counts, marker='o')
+    plt.show()
+
